@@ -1,4 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+// 브라우저 환경을 위해 전역 변수에서 라이브러리를 직접 가져옵니다.
+const { useState, useEffect } = React;
+const { AlertCircle, Shield, Droplets, Fish, HelpCircle } = window.lucide || {};
+const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } = window.Recharts || {};
 
 // ══════════════════════════════════════════════════════════════════════════════
 // 공통 상수 및 파라미터
