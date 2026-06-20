@@ -5,23 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>해양 산성화 시뮬레이션</title>
     
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.23.4/babel.min.js"></script>
 
     <script src="https://unpkg.com/lucide-react"></script>
-    <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.12.0/Recharts.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
 
     <style>
         body, html, #root {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #0b1329;
-            color: #ffffff;
-            font-family: sans-serif;
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: #0b1329; color: #ffffff;
+            font-family: system-ui, -apple-system, sans-serif;
+            overflow-x: hidden;
         }
     </style>
 </head>
@@ -29,38 +26,244 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        // 코드가 외부 모듈(import) 형식 대신 전역 변수를 바라보도록 설정
-        window.lucide = window['lucide-react'] || {};
-        window.Recharts = window.Recharts || {};
-        
-        // 코드 내부의 import 구문이 에러 나지 않도록 가짜 전역 환경(mock) 조성
-        window.exports = {};
-        window.require = function(moduleName) {
-            if (moduleName === 'lucide-react') return window.lucide;
-            if (moduleName === 'recharts') return window.Recharts;
-            return {};
-        };
-    </script>
+        // 라이브러리 전역 바인딩
+        const { useState, useEffect } = React;
+        const { AlertCircle, Shield, Droplets, Fish, HelpCircle } = window.lucide || {};
+        const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } = window.Recharts || {};
 
-    <script type="text/babel" src="clownfish_survival.jsx"></script>
+        // --- 여기에 원래 작성하셨던 시뮬레이션 로직이 안전하게 실행됩니다 ---
+        const ClownfishSimulation = () => {
+          const [pH, setPH] = useState(8.15);
+          const [co2, setCo2] = useState(400);
+          const [year, setYear] = useState(2026);
+          const [scenario, setScenario] = useState('current');
+          const [isPlaying, setIsPlaying] = useState(false);
+          const [activeTab, setActiveTab] = useState('simulation');
+          const [logs, setLogs] = useState([
+            { id: 1, time: "00:00", type: "system", text: "해양 시뮬레이션이 초기화되었습니다. 현재 pH: 8.15 (정상)" }
+          ]);
 
-    <script type="text/babel">
-        window.addEventListener('DOMContentLoaded', () => {
-            // 코드 하단의 export default ClownfishSimulation 이름을 찾아와 타겟팅합니다.
-            const TargetComponent = typeof ClownfishSimulation !== 'undefined' ? ClownfishSimulation : null;
+          const scenarioData = {
+            current: { name: "현재 상태 (지속 가능)", targetPH: 8.15, targetCO2: 400, desc: "산업화 이전 수준에 가까운 안정적인 해양 환경입니다." },
+            moderate: { name: "온건한 배출 (RCP 4.5)", targetPH: 7.95, targetCO2: 650, desc: "화석연료 사용이 점차 감소하지만, 2100년까지 약 0.2 pH가 감소합니다." },
+            severe: { name: "고배출 시나리오 (RCP 8.5)", targetPH: 7.75, targetCO2: 950, desc: "현재 추세로 화석연료를 계속 사용할 경우, 심각한 산성화가 진행됩니다." }
+          };
+
+          const calculateMetrics = (currentPH) => {
+            const basePH = 8.15;
+            const drop = basePH - currentPH;
             
-            if (TargetComponent) {
-                const root = ReactDOM.createRoot(document.getElementById('root'));
-                root.render(React.createElement(TargetComponent));
+            let homing = Math.max(0, Math.min(100, Math.round(100 - (drop * 350))));
+            let predator = Math.max(0, Math.min(100, Math.round(100 - (drop * 450))));
+            let activity = Math.min(150, Math.round(100 + (drop * 120)));
+            let survival = Math.max(10, Math.round((homing * 0.6) + (predator * 0.4)));
+
+            return { homing, predator, activity, survival };
+          };
+
+          const metrics = calculateMetrics(pH);
+
+          useEffect(() => {
+            let interval = null;
+            if (isPlaying) {
+              interval = setInterval(() => {
+                setYear(prev => {
+                  if (prev >= 2100) {
+                    setIsPlaying(false);
+                    addLog("system", "2100년 예측 시뮬레이션이 종료되었습니다.");
+                    return 2100;
+                  }
+                  const nextYear = prev + 1;
+                  const totalYears = 2100 - 2026;
+                  const currentProgress = (nextYear - 2026) / totalYears;
+                  
+                  const target = scenarioData[scenario];
+                  const newPH = 8.15 - ((8.15 - target.targetPH) * currentProgress);
+                  const newCO2 = 400 + ((target.targetCO2 - 400) * currentProgress);
+                  
+                  setPH(parseFloat(newPH.toFixed(3)));
+                  setCo2(Math.round(newCO2));
+
+                  if (nextYear % 15 === 0) {
+                    const currentMetrics = calculateMetrics(newPH);
+                    if (currentMetrics.survival < 40) {
+                      addLog("danger", `경고 (${nextYear}년): 산성도 증가로 개체수가 급감하고 있습니다!`);
+                    } else if (currentMetrics.homing < 60) {
+                      addLog("warning", `주의 (${nextYear}년): 후각 마비로 인해 치어들이 정착지를 찾지 못합니다.`);
+                    }
+                  }
+                  return nextYear;
+                });
+              }, 150);
             } else {
-                document.getElementById('root').innerHTML = `
-                    <div style="padding: 40px; text-align: center;">
-                        <h2>시뮬레이션을 로드할 수 없습니다.</h2>
-                        <p>clownfish_survival.jsx 파일 내의 ClownfishSimulation 컴포넌트를 찾지 못했습니다.</p>
-                    </div>
-                `;
+              clearInterval(interval);
             }
-        });
+            return () => clearInterval(interval);
+          }, [isPlaying, scenario]);
+
+          const handleScenarioChange = (e) => {
+            const scen = e.target.value;
+            setScenario(scen);
+            setIsPlaying(false);
+            setYear(2026);
+            setPH(8.15);
+            setCo2(400);
+            setLogs([{ id: Date.now(), time: "00:00", type: "system", text: `${scenarioData[scen].name} 시나리오가 선택되었습니다.` }]);
+          };
+
+          const addLog = (type, text) => {
+            const timeStr = `${String(Math.floor((year-2026)/10)).padStart(2, '0')}:${String((year-2026)%10).padStart(2, '0')}`;
+            setLogs(prev => [{ id: Date.now(), time: timeStr, type, text }, ...prev.slice(0, 19)]);
+          };
+
+          const generateChartData = () => {
+            const data = [];
+            const target = scenarioData[scenario];
+            for (let y = 2026; y <= 2100; y += 5) {
+              const progress = (y - 2026) / (2100 - 2026);
+              const curPH = 8.15 - ((8.15 - target.targetPH) * progress);
+              const curMetrics = calculateMetrics(curPH);
+              data.push({
+                year: y,
+                '생존율 (%)': curMetrics.survival,
+                '귀환 능력 (%)': curMetrics.homing,
+                '포식자 회피 (%)': curMetrics.predator
+              });
+            }
+            return data;
+          };
+
+          return (
+            <div class="p-6 max-w-6xl mx-auto">
+              <header class="mb-8 text-center border-b border-slate-700 pb-4">
+                <h1 class="text-3xl font-bold text-sky-400 flex justify-center items-center gap-2">
+                  <Fish class="w-8 h-8" /> 해양 산성화가 흰동가리 생존에 미치는 영향 시뮬레이션
+                </h1>
+                <p class="text-slate-400 mt-2">Munday et al. (2009) 및 Dixson et al. (2010) 연구 기반 예측 모델</p>
+              </header>
+
+              <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-1 bg-slate-800/60 p-6 rounded-2xl border border-slate-700 backdrop-blur-sm">
+                  <h2 class="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                    <Sliders class="w-5 h-5 text-sky-400" /> 통제 패널 (Controls)
+                  </h2>
+                  
+                  <div class="mb-5">
+                    <label class="block text-sm font-medium text-slate-300 mb-2">이산화탄소 배출 시나리오</label>
+                    <select value={scenario} onChange={handleScenarioChange} class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-sky-500">
+                      <option value="current">현재 수준 유지 시나리오</option>
+                      <option value="moderate">RCP 4.5 (온건한 배출)</option>
+                      <option value="severe">RCP 8.5 (최악의 고배출)</option>
+                    </select>
+                    <p class="text-xs text-slate-400 mt-2 bg-slate-900/50 p-2 rounded">{scenarioData[scenario].desc}</p>
+                  </div>
+
+                  <div class="mb-5">
+                    <div class="flex justify-between text-sm mb-1">
+                      <span class="text-slate-300 flex items-center gap-1"><Droplets class="w-4 h-4 text-sky-400"/> 해수 pH 산도</span>
+                      <span class="font-mono text-sky-400 font-bold text-base">{pH}</span>
+                    </div>
+                    <input type="range" min="7.60" max="8.20" step="0.01" value={pH} onChange={(e) => { setPH(parseFloat(e.target.value)); setIsPlaying(false); }} class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-500" />
+                  </div>
+
+                  <div class="mb-6">
+                    <div class="flex justify-between text-sm mb-1">
+                      <span class="text-slate-300">대기 중 $CO_2$ 농도</span>
+                      <span class="font-mono text-emerald-400 font-bold text-base">{co2} ppm</span>
+                    </div>
+                    <input type="range" min="380" max="1000" step="10" value={co2} onChange={(e) => { setCo2(parseInt(e.target.value)); setIsPlaying(false); }} class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500" />
+                  </div>
+
+                  <div class="bg-slate-900/80 rounded-xl p-4 text-center border border-slate-700/50 mb-5">
+                    <div class="text-xs text-slate-400 uppercase tracking-wider">예측 시뮬레이션 타임라인</div>
+                    <div class="text-4xl font-extrabold text-white my-1 font-mono">{year}년</div>
+                  </div>
+
+                  <button onClick={() => setIsPlaying(!isPlaying)} class={`w-full py-3 px-4 rounded-xl font-bold flex items-center justify-center gap-2 transition shadow-lg ${isPlaying ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-sky-500 hover:bg-sky-600 text-white'}`}>
+                    {isPlaying ? '일시 정지' : '시뮬레이션 자동 재생'}
+                  </button>
+                </div>
+
+                <div class="lg:col-span-2 flex flex-col gap-6">
+                  <div class="flex border-b border-slate-700">
+                    <button onClick={() => setActiveTab('simulation')} class={`py-2.5 px-5 font-medium text-sm border-b-2 transition ${activeTab === 'simulation' ? 'border-sky-500 text-sky-400 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200'}`}>실시간 생태 지표</button>
+                    <button onClick={() => setActiveTab('charts')} class={`py-2.5 px-5 font-medium text-sm border-b-2 transition ${activeTab === 'charts' ? 'border-sky-500 text-sky-400 font-bold' : 'border-transparent text-slate-400 hover:text-slate-200'}`}>장기 변화 그래프</button>
+                  </div>
+
+                  {activeTab === 'simulation' ? (
+                    <div class="grid grid-cols-2 gap-4 flex-1">
+                      <div class="bg-slate-800/40 p-5 rounded-2xl border border-slate-700 flex flex-col justify-between">
+                        <div>
+                          <div class="text-sm font-medium text-slate-400 mb-1">고향 서식지 귀환 능력 (Homing)</div>
+                          <div class="text-3xl font-bold text-sky-400 font-mono">{metrics.homing}%</div>
+                        </div>
+                        <div class="text-xs text-slate-400 mt-2">올바른 산호초 냄새를 감지하여 정착하는 확률입니다. pH가 낮아지면 신경계 교란으로 냄새를 맡지 못합니다.</div>
+                      </div>
+
+                      <div class="bg-slate-800/40 p-5 rounded-2xl border border-slate-700 flex flex-col justify-between">
+                        <div>
+                          <div class="text-sm font-medium text-slate-400 mb-1">포식자 신호 회피 (Predator Avoidance)</div>
+                          <div class="text-3xl font-bold text-coral-400 text-orange-400 font-mono">{metrics.predator}%</div>
+                        </div>
+                        <div class="text-xs text-slate-400 mt-2">포식자의 냄새를 맡고 도망치는 본능입니다. 심각한 산성화 수준에서는 오히려 포식자에게 이끌립니다.</div>
+                      </div>
+
+                      <div class="bg-slate-800/40 p-5 rounded-2xl border border-slate-700 flex flex-col justify-between">
+                        <div>
+                          <div class="text-sm font-medium text-slate-400 mb-1">치어 활동성 지수 (Activity Level)</div>
+                          <div class="text-3xl font-bold text-amber-400 font-mono">{metrics.activity}%</div>
+                        </div>
+                        <div class="text-xs text-slate-400 mt-2">행동이 과도하게 대담해지거나 비정상적인 활동량이 증가하여 상위 포식자에게 노출될 위험이 커집니다.</div>
+                      </div>
+
+                      <div class="bg-slate-800/40 p-5 rounded-2xl border border-slate-700 flex flex-col justify-between ring-2 ring-sky-500/30">
+                        <div>
+                          <div class="text-sm font-medium text-slate-400 mb-1">종합 치어 생존율 (Est. Survival Rate)</div>
+                          <div class={`text-4xl font-extrabold font-mono ${metrics.survival > 70 ? 'text-emerald-400' : metrics.survival > 40 ? 'text-amber-400' : 'text-rose-500'}`}>{metrics.survival}%</div>
+                        </div>
+                        <div class="text-xs text-slate-400 mt-2">최종적으로 성체 산호초에 도달하여 살아남을 수 있는 흰동가리 치어의 예상 생존 비율입니다.</div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div class="bg-slate-800/30 p-4 rounded-2xl border border-slate-700 flex-1 min-h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={generateChartData()} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                          <XAxis dataKey="year" stroke="#94a3b8" />
+                          <YAxis stroke="#94a3b8" domain={[0, 100]} />
+                          <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569' }} />
+                          <Legend />
+                          <Line type="monotone" dataKey="종합 생존율 (%)" stroke="#f43f5e" strokeWidth={3} dot={false} />
+                          <Line type="monotone" dataKey="귀환 능력 (%)" stroke="#38bdf8" strokeWidth={2} dot={false} />
+                          <Line type="monotone" dataKey="포식자 회피 (%)" stroke="#fb923c" strokeWidth={2} dot={false} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+
+                  <div class="bg-slate-900/60 rounded-xl p-4 border border-slate-800">
+                    <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">실시간 환경 로그 (Data Logs)</div>
+                    <div class="h-24 overflow-y-auto font-mono text-xs space-y-1.5 pr-2">
+                      {logs.map(log => (
+                        <div key={log.id} class="flex items-start gap-2">
+                          <span class="text-slate-500">[{log.time}]</span>
+                          <span class={log.type === 'danger' ? 'text-rose-400 font-bold' : log.type === 'warning' ? 'text-amber-400' : 'text-slate-300'}>{log.text}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        // 가짜로 정의되지 않은 Lucide 컴포넌트 자동 방지 아이콘 매핑
+        const Sliders = window.lucide.Sliders || HelpCircle;
+
+        // 화면 렌더링 시작
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(React.createElement(ClownfishSimulation));
     </script>
 </body>
 </html>
