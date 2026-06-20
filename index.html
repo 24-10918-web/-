@@ -7,16 +7,42 @@
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        body, html, #root {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #020c18;
+            color: #ffffff;
+            font-family: sans-serif;
+            overflow: auto;
+        }
+    </style>
 </head>
-<body style="margin: 0; background-color: #020c18;">
+<body>
     <div id="root"></div>
 
     <script type="text/babel" src="clownfish_survival.jsx"></script>
     <script type="text/babel">
-        // HTML 내부 root 엘리먼트에 React 앱 렌더링
-        const root = InvisibleReactDOM.createRoot(document.getElementById('root'));
-        // 상단 전역에 선언된 App 컴포넌트 실행
-        root.render(<App />);
+        // 브라우저 환경에 맞춰 안전하게 React 앱을 구동하는 스크립트
+        window.addEventListener('DOMContentLoaded', () => {
+            try {
+                // 작성하신 파일 안의 메인 컴포넌트 이름(App 또는 ClownfishSurvival 등)과 연동합니다.
+                // 만약 코드의 최하단 메인 함수 이름이 App이 아니라면, 아래 <App /> 부분을 해당 이름으로 변경해주시면 됩니다.
+                const TargetComponent = typeof App !== 'undefined' ? App : (typeof ClownfishSurvival !== 'undefined' ? ClownfishSurvival : null);
+                
+                if (TargetComponent) {
+                    const root = ReactDOM.createRoot(document.getElementById('root'));
+                    root.render(React.createElement(TargetComponent));
+                } else {
+                    document.getElementById('root').innerHTML = "<div style='padding:20px;'>시뮬레이션 컴포넌트를 찾을 수 없습니다. 코드 안의 메인 함수(컴포넌트) 이름을 확인해주세요.</div>";
+                }
+            } catch (e) {
+                document.getElementById('root').innerHTML = "<div style='padding:20px;'>오류가 발생했습니다: " + e.message + "</div>";
+            }
+        });
     </script>
 </body>
 </html>
